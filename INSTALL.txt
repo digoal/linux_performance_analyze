@@ -1,4 +1,7 @@
 安装范例 : 
+详情参考 : 
+http://blog.163.com/digoal@126/blog/static/163877040201211354145701/
+
 一、PostgreSQL meta库配置
 详见metadata.sql
 假设本例将PostgreSQL meta库配置在IP:192.168.1.100 PORT:5432 USER:sar DBNAME:sar
