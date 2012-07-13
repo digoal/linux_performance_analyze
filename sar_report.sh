@@ -87,3 +87,8 @@ echo -e "\n---- get_server_nodata_yesterday: ----\n" >>/tmp/sar_report.log
 psql $DB_URL -c "select * from get_server_nodata_yesterday();" >>/tmp/sar_report.log
 
 cat /tmp/sar_report.log|mutt -s "`date +$F` DB Servers RS Consume Top10" $EMAIL
+
+
+# Author : Digoal zhou
+# Email : digoal@126.com
+# Blog : http://blog.163.com/digoal@126/

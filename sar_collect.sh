@@ -55,3 +55,9 @@ psql $DB_URL -c "$SQL"
 # sar -W, sar_swap pswpin/s pswpout/s
 SQL=`sar -W -f $SAR_FILE|grep -E 'AM[ ]+([0-9]+|\.+|all|-)|PM[ ]+([0-9]+|\.+|all|-)'|awk '{print "insert into sar_swap(server_id, s_date, s_time, pswpin_p_s, pswpout_p_s) values('$SERVER_ID', '$SAR_DATE',","\47"$1$2"\47,",$3",",$4");"}'`
 psql $DB_URL -c "$SQL"
+
+
+
+# Author : Digoal zhou
+# Email : digoal@126.com
+# Blog : http://blog.163.com/digoal@126/

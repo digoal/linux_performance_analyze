@@ -111,3 +111,9 @@ select get_info(server_id),get_ip(server_id),round(avg(percnt_swpused),2) percnt
 select get_ip(server_id),* from (select *,row_number() over (partition by server_id order by proc_p_s desc) from sar_proc where s_date=current_date-1) t where row_number=1 order by  proc_p_s  desc limit 10;
 select get_info(server_id),get_ip(server_id),round(avg(proc_p_s),2) proc_p_s from sar_proc where s_date=current_date-1 group by server_id,s_date order by proc_p_s desc limit 10;
 
+
+
+
+# Author : Digoal zhou
+# Email : digoal@126.com
+# Blog : http://blog.163.com/digoal@126/

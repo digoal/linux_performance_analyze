@@ -300,3 +300,9 @@ s_time time not null,
 pswpin_p_s numeric,
 pswpout_p_s numeric,
 unique(server_id,s_date,s_time));
+
+
+
+-- # Author : Digoal zhou
+-- # Email : digoal@126.com
+-- # Blog : http://blog.163.com/digoal@126/
