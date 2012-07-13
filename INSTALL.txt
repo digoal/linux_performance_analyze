@@ -1,0 +1,113 @@
+安装范例 : 
+一、PostgreSQL meta库配置
+详见metadata.sql
+假设本例将PostgreSQL meta库配置在IP:192.168.1.100 PORT:5432 USER:sar DBNAME:sar
+
+二、客户端服务器配置, 收集sysstat信息并发送至 PostgreSQL 数据库 : 
+1. 
+安装postgresql client 范例 : 
+su - root
+tar -jxvf flex-2.5.35.tar.bz2
+cd flex-2.5.35
+./configure ;make;make install
+
+useradd postgres
+su - postgres
+wget http://ftp.postgresql.org/pub/source/v9.1.4/postgresql-9.1.4.tar.bz2
+tar -jxvf postgresql-9.1.4.tar.bz2
+cd postgresql-9.1.4
+./configure --prefix=~/pgsql --with-perl --with-python --with-openssl --with-pam --without-ldap --with-libxml --with-libxslt --enable-thread-safety --with-wal-blocksize=16 && make
+su - root
+make install
+
+2. 
+配置postgres用户 ~/.pgpass文件, 
+格式
+数据库IP:数据库端口:数据库名:用户:密码
+su - postgres
+vi ~/.pgpass
+192.168.1.100:5432:sar:sar:DIGOAL
+chmod 400 ~/.pgpass
+
+
+3. 编辑sar_collect.sh脚本, 用于收集sysstat前一天的信息, 提交给PostgreSQL数据库.
+su - postgres
+cd ~
+touch sar_collect.sh
+chmod 500 sar_collect.sh
+vi sar_collect.sh
+
+# 脚本内容详见 sar_collect.sh
+
+4. 
+配置crontab, 每天凌晨2点执行
+su - postgres
+crontab -e
+1 2 * * * /home/postgres/sar_collect.sh
+
+
+
+三、
+# 配置发送报告的服务, 这个服务可以放在任意可以发送邮件并且可以连接PostgreSQL meta库的机器上.
+# 本例将脚本放在PostgreSQL meta库的服务器上, 并且配置pg_hba.conf 允许127.0.0.1 trust认证.
+1. 
+# mutt配置
+su - postgres
+vi ~/.muttrc 
+set envelope_from=yes
+set from=digoal@126.com
+set realname="Digoal Zhou"
+set use_from=yes
+set charset="UTF-8"
+
+2. 
+# 编写发送报告的shell脚本, sar_report.sh
+su - postgres
+vi ~/sar_report.sh
+
+# 脚本内容详见 sar_report.sh
+
+3. 
+# 配置crontab, 每天在sar_collect.sh执行完后执行, 例如8点执行.
+su - postgres
+crontab -e
+7 8 * * * /home/pg91/sar_report.sh
+
+
+四、
+# 报告SQL解释.
+# 昨天15分钟最大负载排名前10,后一条为平均值排行
+# 负载过高需要关注这些服务器上运行的数据库和业务是否健康, 例如是否需要建索引, 是否需要使用绑定变量等.
+select get_ip(server_id),* from (select *,row_number() over (partition by server_id order by ldavg_15 desc) from sar_load where s_date=current_date-1) t where row_number=1 order by ldavg_15 desc limit 10;
+select get_info(server_id),get_ip(server_id),round(avg(ldavg_15),2) ldavg_15 from sar_load where s_date=current_date-1 group by server_id,s_date order by ldavg_15 desc limit 10;
+
+# 昨天最大读请求数排名前10,后一条为平均值排行
+# 读请求过高需要关注这些服务器上运行的数据库和业务是否健康, 例如是否需要建索引, 是否需要加内存, 是否需要对存储性能扩容等. 
+select get_ip(server_id),* from (select *,row_number() over (partition by server_id order by rtps desc) from sar_io where s_date=current_date-1) t where row_number=1 order by rtps desc limit 10;
+select get_info(server_id),get_ip(server_id),round(avg(rtps),2) rtps from sar_io where s_date=current_date-1 group by server_id,s_date order by rtps desc limit 10;
+
+# 昨天最大写请求数排名前10,后一条为平均值排行
+# 写请求过高需要关注这些服务器上运行的数据库和业务是否健康, 例如是否需要减少索引, 是否需要使用异步IO, 是否需要对存储性能进行扩容等. 
+select get_ip(server_id),* from (select *,row_number() over (partition by server_id order by wtps desc) from sar_io where s_date=current_date-1) t where row_number=1 order by wtps desc limit 10;
+select get_info(server_id),get_ip(server_id),round(avg(wtps),2) wtps from sar_io where s_date=current_date-1 group by server_id,s_date order by wtps desc limit 10;
+
+# 昨天最大iowait排名前10,后一条为平均值排行
+# iowait过高需要关注这些服务器上运行的数据库和业务是否健康, 例如是否需要加内存, 是否需要将常用数据放入内存, 是否需要对存储性能进行扩容等.
+select get_ip(server_id),* from (select *,row_number() over (partition by server_id order by percnt_iowait desc) from sar_cpu where s_date=current_date-1) t where row_number=1 order by percnt_iowait desc limit 10;
+select get_info(server_id),get_ip(server_id),round(avg(percnt_iowait),2) percnt_iowait from sar_cpu where s_date=current_date-1 group by server_id,s_date order by percnt_iowait desc limit 10;
+
+# 昨天最大swap页进出排名前10,后一条为平均值排行
+# swap也进出过高需要关注这些服务器上运行的数据库和业务是否健康, 例如是否需要加内存, 是否需要将常用数据放入内存等. 
+select get_ip(server_id),* from (select *,row_number() over (partition by server_id order by pswpin_p_s+pswpout_p_s desc) from sar_swap where s_date=current_date-1) t where row_number=1 order by pswpin_p_s+pswpout_p_s desc limit 10;
+select get_info(server_id),get_ip(server_id),round(avg(pswpin_p_s+pswpout_p_s),2) pswpin_out_p_s from sar_swap where s_date=current_date-1 group by server_id,s_date order by pswpin_out_p_s desc limit 10;
+
+# 昨天最大SWAP使用比例前10,后一条为平均值排行
+# SWAP使用率过高需要关注这些服务器上运行的数据库和业务是否健康, 例如是否需要加内存, 是否需要调整数据库参数, 是否需要使用大页等. 
+select get_ip(server_id),* from (select *,row_number() over (partition by server_id order by percnt_swpused desc) from sar_mem_swap where s_date=current_date-1) t where row_number=1 order by percnt_swpused desc limit 10;
+select get_info(server_id),get_ip(server_id),round(avg(percnt_swpused),2) percnt_swpused from sar_mem_swap where s_date=current_date-1 group by server_id,s_date order by percnt_swpused desc limit 10;
+
+# 昨天每秒新建进程排名前10,后一条为平均值排行
+# 每秒新建进程数过高需要关注这些服务器上运行的数据库和业务是否健康, 例如是否需要加个数据库连接池使用长连接, Oracle是否需要使用共享连接, 应用程序是否可以将短连接改成长连接的模式等. 
+select get_ip(server_id),* from (select *,row_number() over (partition by server_id order by proc_p_s desc) from sar_proc where s_date=current_date-1) t where row_number=1 order by  proc_p_s  desc limit 10;
+select get_info(server_id),get_ip(server_id),round(avg(proc_p_s),2) proc_p_s from sar_proc where s_date=current_date-1 group by server_id,s_date order by proc_p_s desc limit 10;
+
